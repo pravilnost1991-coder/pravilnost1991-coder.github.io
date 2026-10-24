@@ -606,11 +606,18 @@ document.querySelectorAll(".split").forEach(el => {
 /* ================= staged reveal ================= */
 const screens = [...document.querySelectorAll(".screen")];
 const io = new IntersectionObserver(es => {
-  for (const e of es) if (e.isIntersecting && !e.target.classList.contains("in")){
-    const s = e.target; s.classList.add("in");
-    clearTimeout(s._st); s._st = setTimeout(() => { if (s.classList.contains("in")) s.classList.add("settled"); }, 1700);
+  for (const e of es){
+    const s = e.target;
+    if (e.isIntersecting && e.intersectionRatio >= .2){
+      if (s.classList.contains("in")) continue;
+      s.classList.add("in");
+      clearTimeout(s._st); s._st = setTimeout(() => { if (s.classList.contains("in")) s.classList.add("settled"); }, 1700);
+    } else if (!e.isIntersecting && s.classList.contains("in")){
+      // fully off screen (either direction): hide again so it flies back in next time
+      clearTimeout(s._st); s.classList.remove("in", "settled");
+    }
   }
-}, {threshold: .22});
+}, {threshold: [0, .2]});
 screens.forEach(s => io.observe(s));
 
 /* ================= lanyard: mood + now playing ================= */
@@ -763,10 +770,10 @@ const FRIENDS = [
 ];
 const EDGES = [
   ["kuroneko","baeldorf"],["baeldorf","hiniku"],["hiniku","weweko"],["weweko","polkopi"],
-  ["rapirsky","8lolxd8"],["8lolxd8","fighterjet"],["fighterjet","atevand"],
+  ["rapirsky","fighterjet"],["fighterjet","atevand"],
   ["rapirsky","losos"],["losos","ghostik"],["ghostik","ladya"],["ladya","kartoshka"]
 ];
-const ROOTS = ["kuroneko","rapirsky"];
+const ROOTS = ["kuroneko","rapirsky","8lolxd8"];   // 8lolxd8 is a source on its own: no lines in or out
 const web = $("web"), svg = $("links");
 const nodes = {};
 for (const f of FRIENDS){
@@ -897,8 +904,22 @@ function makeRouter(W, H){
     const out = []; for (let i = g; i !== -1; i = came[i]) out.push(i);
     return out.reverse();
   }
+  // point where the line from a nick's centre towards (tx,ty) leaves its box (+ extra margin)
+  const exitPt = (r, tx, ty, extra) => {
+    const cx = r.x + r.w/2, cy = r.y + r.h/2, dx = tx - cx, dy = ty - cy;
+    const t = Math.min(Math.abs(dx) > 1e-6 ? (r.w/2 + extra) / Math.abs(dx) : Infinity,
+                       Math.abs(dy) > 1e-6 ? (r.h/2 + extra) / Math.abs(dy) : Infinity);
+    return [cx + dx*t, cy + dy*t];
+  };
   return function route(A, B){
-    const a = anchor(A, B.x + B.w/2, B.y + B.h/2), b = anchor(B, A.x + A.w/2, A.y + A.h/2);
+    const acx = A.x + A.w/2, acy = A.y + A.h/2, bcx = B.x + B.w/2, bcy = B.y + B.h/2;
+    // clear straight shot between the two nicks? then just draw it straight
+    const a1 = exitPt(A, bcx, bcy, M + C*.6), b1 = exitPt(B, acx, acy, M + C*.6);
+    if (Math.hypot(b1[0]-a1[0], b1[1]-a1[1]) > 4 && visible(a1, b1)){
+      const a0 = exitPt(A, bcx, bcy, 2), b0 = exitPt(B, acx, acy, 2);
+      return `M${a0[0].toFixed(1)},${a0[1].toFixed(1)} L${b0[0].toFixed(1)},${b0[1].toFixed(1)}`;
+    }
+    const a = anchor(A, bcx, bcy), b = anchor(B, acx, acy);
     let pts;
     const sCell = cell(a.pt[0], a.pt[1]), gCell = cell(b.pt[0], b.pt[1]);
     const cells = visible(a.pt, b.pt) ? [] : astar(sCell, gCell);
@@ -934,9 +955,47 @@ function rounded(p, R){
 }
 
 let laidW = 0;
+// phones: lay friends out branch by branch so the lines stay short and readable
+const PHONE_ROWS = [
+  [["kuroneko","c"]], [["baeldorf","r"]], [["hiniku","l"]], [["weweko","r"]], [["polkopi","l"]],
+  null,
+  [["rapirsky","c"]], [["fighterjet","l"],["losos","r"]], [["atevand","l"],["ghostik","r"]], [["ladya","r"]], [["kartoshka","l"]],
+  null,
+  [["8lolxd8","c"]]
+];
+function layoutPhone(W){
+  const pad = 6, rowGap = 26, spacer = 34;
+  let y = pad;
+  for (const row of PHONE_ROWS){
+    if (!row){ y += spacer; continue; }
+    let rowH = 0;
+    for (const [id, col] of row){
+      const el = nodes[id].el;
+      el.style.fontSize = (17 + Math.random() * 7) + "px";
+      const w = el.offsetWidth, h = el.offsetHeight;
+      const j = Math.random() * W * .1;
+      const x = col === "l" ? pad + j : col === "r" ? W - w - pad - j : Math.max(pad, Math.min(W - w - pad, (W - w) / 2 + (Math.random() - .5) * W * .16));
+      const yy = y + Math.random() * 8;
+      el.style.left = x + "px"; el.style.top = yy + "px";
+      Object.assign(nodes[id], {x, y:yy, w, h});
+      rowH = Math.max(rowH, h + 8);
+    }
+    y += rowH + rowGap;
+  }
+  return Math.round(y + pad);
+}
+
 function layout(){
   const W = web.clientWidth, phone = W < 640;
-  const H = phone ? Math.max(760, Math.round(innerHeight * .95)) : Math.max(540, Math.round(innerHeight * .74));
+  let H;
+  if (phone){
+    H = layoutPhone(W);
+    web.style.height = H + "px";
+    drawLinks(W, H);
+    laidW = W;
+    return;
+  }
+  H = Math.max(540, Math.round(innerHeight * .74));
   web.style.height = H + "px";
   const placed = [];
   const pad = 6, gap = phone ? 30 : 46;
@@ -959,6 +1018,10 @@ function layout(){
     el.style.left = x + "px"; el.style.top = y + "px";
     Object.assign(nodes[f.id], {x, y, w, h});
   }
+  drawLinks(W, H);
+  laidW = W;
+}
+function drawLinks(W, H){
   const route = makeRouter(W, H);
   svg.setAttribute("width", W); svg.setAttribute("height", H);
   svg.innerHTML = "";
