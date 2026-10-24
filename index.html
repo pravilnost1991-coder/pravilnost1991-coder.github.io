@@ -121,7 +121,8 @@ ul{padding:0;list-style:none}
 .widgets{margin-top:auto;padding-top:40px;display:flex;gap:24px;flex-wrap:wrap}
 .widgets .card{width:min(100%,340px);min-height:160px;display:flex;flex-direction:column;justify-content:center}
 .w-mood h3{font-size:44px;line-height:1}
-.w-mood p{font-size:clamp(22px,2.2vw,30px);line-height:1.05;margin-top:6px}
+.w-mood p{font-size:clamp(22px,2.2vw,30px);line-height:1.05;margin-top:6px;transition:opacity .26s ease,filter .26s ease,transform .26s ease}
+.w-mood p.swap{opacity:0;filter:blur(6px);transform:translateY(6px)}
 .w-np{justify-content:flex-start !important;padding-top:26px}
 .w-np .lbl{font-size:20px}
 .w-np .track{font-size:22px;margin-top:14px;text-transform:uppercase;overflow-wrap:anywhere}
@@ -284,7 +285,7 @@ body.locked .lens{opacity:0}
     <div class="widgets">
       <article class="card glass w-mood rv tilt" style="--i:3">
         <h3>mood</h3>
-        <p id="mood">running on fumes, close to the end</p>
+        <p id="mood">a little tired, irritated</p>
       </article>
       <article class="card glass w-np idle rv tilt" style="--i:4" id="np">
         <canvas class="viz" id="viz" aria-hidden="true"></canvas>
@@ -398,7 +399,29 @@ body.locked .lens{opacity:0}
 /* ================= settings ================= */
 const DISCORD_ID = "1359502537895575683";
 const POLL_MS = 5000;
-const MOOD_FALLBACK = "running on fumes, close to the end";
+const MOOD_FALLBACK = "a little tired, irritated";   // when nothing is playing
+// mood per track (by title). Discord custom status still wins over this.
+const TRACK_MOODS = {
+  "i won't wake up":      "sleep mode on, don't wake me",
+  "pretend no one died":  "acting normal, ask me later",
+  "er404":                "error 404: mood not found",
+  "nothing":              "feeling nothing in particular",
+  "fuckman":              "irritated, don't test me",
+  "незнакомое место":     "lost somewhere unfamiliar",
+  "opioid":               "numb, running on autopilot",
+  "end":                  "running on fumes, close to the end",
+  "где-то":               "somewhere else in my head",
+  "busy w / yuke":        "busy, text me later",
+  "sil2nt hill":          "foggy and quiet",
+  "her":                  "thinking about someone",
+  "flashback":            "stuck in a flashback",
+  "every time":           "same thing every time",
+  "chance":               "waiting for my chance",
+  "tagilla":              "hunting in labs, stay out of my way",
+  "summer 15/16":         "missing old summers",
+  "сепия сетчатки":       "everything looks sepia"
+};
+const UNKNOWN_TRACK_MOOD = artist => artist ? `vibing to ${artist.toLowerCase()}` : "just vibing";
 const STEAM_URL = "https://steamcommunity.com/profiles/76561198779465136/";
 
 const $ = id => document.getElementById(id);
@@ -532,6 +555,21 @@ const dcSt = $("dc-st"), dcName = $("dc-name");
 const ST_TXT = {online:"online", idle:"idle", dnd:"do not disturb", offline:"offline"};
 let ts = null, playing = false;
 
+const norm = x => (x || "").toLowerCase().replace(/[^\p{L}\p{N}]+/gu, "");
+const MOOD_INDEX = Object.entries(TRACK_MOODS).map(([k, v]) => [norm(k), v]);
+function moodForTrack(t){
+  const n = norm(t.title);
+  if (!n || /^unknowntrack$/.test(n)) return null;
+  const hit = MOOD_INDEX.find(([k]) => n === k) || MOOD_INDEX.find(([k]) => k.length > 3 && n.startsWith(k));
+  return hit ? hit[1] : UNKNOWN_TRACK_MOOD(t.artist);
+}
+function setMood(text){
+  if (moodEl.textContent === text) return;
+  if (reduced){ moodEl.textContent = text; return; }
+  moodEl.classList.add("swap");
+  setTimeout(() => { moodEl.textContent = text; moodEl.classList.remove("swap"); }, 260);
+}
+
 function pickTrack(d){
   const acts = (d.activities || []).filter(a => a.type === 2);
   const a = acts.find(x => (x.buttons || []).some(b => /liner/i.test(b))) || acts[0];
@@ -544,9 +582,8 @@ function render(d, cached, at){
   dcSt.dataset.s = s; dcSt.querySelector("b").textContent = ST_TXT[s] || s;
   if (d.discord_user && d.discord_user.username) dcName.textContent = "@" + d.discord_user.username;
   const custom = (d.activities || []).find(a => a.type === 4 && a.state);
-  moodEl.textContent = custom ? custom.state : MOOD_FALLBACK;
-
   const t = pickTrack(d);
+  setMood(custom ? custom.state : (t && moodForTrack(t)) || MOOD_FALLBACK);
   if (!t){ setIdle(); return; }
   npTrack.textContent = t.artist ? `${t.artist} - ${t.title}` : t.title;
   ts = t.ts && t.ts.start && t.ts.end ? t.ts : null;
@@ -569,7 +606,7 @@ function unavailable(){
   npLbl.textContent = "now playin'...";
   npTrack.textContent = "music status unavailable";
   npCard.classList.add("idle");
-  moodEl.textContent = MOOD_FALLBACK;
+  setMood(MOOD_FALLBACK);
   dcSt.dataset.s = "offline"; dcSt.querySelector("b").textContent = "status unavailable";
 }
 function tick(){
