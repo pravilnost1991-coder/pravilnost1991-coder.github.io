@@ -249,6 +249,12 @@ a.link{cursor:pointer}
 .link.soon .handle{opacity:.6}
 a.link:focus-visible{outline:3px solid #000;outline-offset:4px}
 
+/* ---------- toast ---------- */
+.toast{position:fixed;left:50%;bottom:max(24px,env(safe-area-inset-bottom));z-index:950;max-width:calc(100vw - 32px);
+  border-radius:999px;padding:12px 20px 11px;font-weight:500;font-size:16px;text-align:center;
+  opacity:0;transform:translate(-50%,16px);transition:opacity .25s,transform .3s cubic-bezier(.2,.8,.2,1);pointer-events:none}
+.toast.on{opacity:1;transform:translate(-50%,0)}
+
 /* ---------- footer ---------- */
 .foot{position:relative;z-index:1;display:flex;justify-content:center;padding:0 var(--gut) max(28px,env(safe-area-inset-bottom))}
 .foot p{border-radius:999px;padding:12px 22px 11px;font-size:15px;text-align:center}
@@ -766,7 +772,7 @@ const FRIENDS = [
   {id:"kuroneko", label:"kuroneko or gsslg4", href:"https://gsslg4.ulan-u.de/"},
   {id:"baeldorf"},{id:"hiniku", href:"https://hiniku.ulan-u.de/"},{id:"weweko"},{id:"polkopi"},
   {id:"rapirsky"},{id:"8lolxd8"},{id:"fighterjet"},{id:"atevand"},
-  {id:"losos"},{id:"ghostik"},{id:"ladya"},{id:"kartoshka"}
+  {id:"losos", discord:"lososebych", href:"https://discord.com/channels/@me"},{id:"ghostik"},{id:"ladya"},{id:"kartoshka"}
 ];
 const EDGES = [
   ["kuroneko","baeldorf"],["baeldorf","hiniku"],["hiniku","weweko"],["weweko","polkopi"],
@@ -781,6 +787,7 @@ for (const f of FRIENDS){
   el.className = "fr glass light"; el.textContent = f.label || f.id; el.tabIndex = 0;
   if (f.href){ el.href = f.href; el.target = "_blank"; el.rel = "noopener"; }
   el.dataset.id = f.id;
+  if (f.discord) el.title = "Discord: " + f.discord;
   web.appendChild(el);
   nodes[f.id] = {el};
 }
@@ -1066,11 +1073,26 @@ for (const f of FRIENDS){
   el.addEventListener("blur", () => { current = null; untrace(); });
   el.addEventListener("click", e => {
     if (e.pointerType && e.pointerType !== "mouse" && current !== f.id){
-      e.preventDefault(); current = f.id; trace(f.id);
+      e.preventDefault(); current = f.id; trace(f.id); return;
+    }
+    // Discord has no add-by-username link: copy the name, then open Discord's friends page
+    if (f.discord){
+      if (navigator.clipboard) navigator.clipboard.writeText(f.discord).catch(() => {});
+      toast(`${f.discord} copied: paste it in Discord → Add Friend`);
     }
   });
 }
 document.addEventListener("pointerdown", e => { if (!e.target.closest(".fr") && current){ current = null; untrace(); } });
+
+function toast(text){
+  let t = document.getElementById("toast");
+  if (!t){
+    t = document.createElement("div"); t.id = "toast"; t.className = "toast glass light";
+    t.setAttribute("role", "status"); document.body.appendChild(t);
+  }
+  t.textContent = text; t.classList.add("on");
+  clearTimeout(t._h); t._h = setTimeout(() => t.classList.remove("on"), 3200);
+}
 
 (document.fonts ? document.fonts.ready : Promise.resolve()).then(() => { layout(); sizeViz(); watchGlass(); });
 
