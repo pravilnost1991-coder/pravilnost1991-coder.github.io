@@ -262,18 +262,22 @@ a.link:focus-visible{outline:3px solid #000;outline-offset:4px}
 .dots a.on{height:26px;background:#000}
 body.locked .dots{opacity:0}
 
-/* ---------- cursor ring ---------- */
-.ring{position:fixed;left:0;top:0;width:34px;height:34px;margin:-17px 0 0 -17px;border-radius:50%;
-  border:1.5px solid #000;pointer-events:none;z-index:900;opacity:0;
-  transition:opacity .3s,width .25s cubic-bezier(.2,.8,.2,1),height .25s cubic-bezier(.2,.8,.2,1),margin .25s cubic-bezier(.2,.8,.2,1),background .25s,border-color .25s;
-  will-change:transform}
-.ring.on{opacity:.9}
-.ring::after{content:"";position:absolute;left:50%;top:50%;width:4px;height:4px;margin:-2px 0 0 -2px;border-radius:50%;background:#000;transition:opacity .2s}
-.ring.big::after{opacity:0}
-/* the ring IS the cursor on mouse devices */
+/* ---------- cursor: holographic sight reticle ---------- */
+.ring{position:fixed;left:0;top:0;width:52px;height:52px;margin:-26px 0 0 -26px;pointer-events:none;z-index:900;opacity:0;
+  transition:opacity .25s;will-change:transform}
+.ring.on{opacity:1}
+.ring svg{display:block;width:100%;height:100%;overflow:visible;
+  filter:drop-shadow(0 0 1.5px rgba(255,45,40,.95)) drop-shadow(0 0 5px rgba(255,40,30,.45));
+  transition:transform .22s cubic-bezier(.2,.8,.2,1)}
+.ring .reticle-ring,.ring .tick{fill:none;stroke:#e1261f;stroke-linecap:butt}
+.ring .reticle-ring{stroke-width:4.2}
+.ring .tick{stroke-width:5}
+.ring .pip{fill:#e1261f}
+.ring.big svg{transform:scale(1.22)}
+.ring.down svg{transform:scale(.9) translateY(-4px)}
+.ring.big.down svg{transform:scale(1.08) translateY(-4px)}
+/* the reticle IS the cursor on mouse devices */
 html.ring-cursor,html.ring-cursor *{cursor:none !important}
-.ring.big{width:58px;height:58px;margin:-29px 0 0 -29px;background:rgba(0,0,0,.06);border-color:rgba(0,0,0,.55)}
-.ring.down{width:26px;height:26px;margin:-13px 0 0 -13px}
 body.locked .ring{opacity:0}
 @media (pointer:coarse){.ring{display:none}}
 
@@ -1101,6 +1105,11 @@ if (finePointer && !reduced){
   // crisp ring that trails the cursor
   const ring = document.createElement("div");
   ring.className = "ring"; ring.setAttribute("aria-hidden", "true");
+  ring.innerHTML = '<svg viewBox="0 0 100 100" aria-hidden="true">' +
+    '<circle class="reticle-ring" cx="50" cy="50" r="30"/>' +
+    '<line class="tick" x1="50" y1="2" x2="50" y2="20"/><line class="tick" x1="50" y1="80" x2="50" y2="98"/>' +
+    '<line class="tick" x1="2" y1="50" x2="20" y2="50"/><line class="tick" x1="80" y1="50" x2="98" y2="50"/>' +
+    '<circle class="pip" cx="50" cy="50" r="2.6"/><circle class="pip" cx="50" cy="58.5" r="2.6"/></svg>';
   document.body.appendChild(ring);
   document.documentElement.classList.add("ring-cursor");
   let tx = -200, ty = -200, x = -200, y = -200;
