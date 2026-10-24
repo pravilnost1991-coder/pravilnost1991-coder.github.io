@@ -246,7 +246,11 @@ body.locked .dots{opacity:0}
   border:1.5px solid #000;pointer-events:none;z-index:900;opacity:0;
   transition:opacity .3s,width .25s cubic-bezier(.2,.8,.2,1),height .25s cubic-bezier(.2,.8,.2,1),margin .25s cubic-bezier(.2,.8,.2,1),background .25s,border-color .25s;
   will-change:transform}
-.ring.on{opacity:.85}
+.ring.on{opacity:.9}
+.ring::after{content:"";position:absolute;left:50%;top:50%;width:4px;height:4px;margin:-2px 0 0 -2px;border-radius:50%;background:#000;transition:opacity .2s}
+.ring.big::after{opacity:0}
+/* the ring IS the cursor on mouse devices */
+html.ring-cursor,html.ring-cursor *{cursor:none !important}
 .ring.big{width:58px;height:58px;margin:-29px 0 0 -29px;background:rgba(0,0,0,.06);border-color:rgba(0,0,0,.55)}
 .ring.down{width:26px;height:26px;margin:-13px 0 0 -13px}
 body.locked .ring{opacity:0}
@@ -1026,17 +1030,19 @@ if (finePointer && !reduced){
   const ring = document.createElement("div");
   ring.className = "ring"; ring.setAttribute("aria-hidden", "true");
   document.body.appendChild(ring);
+  document.documentElement.classList.add("ring-cursor");
   let tx = -200, ty = -200, x = -200, y = -200;
   addEventListener("pointermove", e => {
     if (e.pointerType !== "mouse") return;
     tx = e.clientX; ty = e.clientY; ring.classList.add("on");
+    ring.style.transform = `translate3d(${tx}px,${ty}px,0)`;
     ring.classList.toggle("big", !!(e.target.closest && e.target.closest("a,button,.fr,.chips li,.ava")));
   }, {passive:true});
   addEventListener("pointerdown", () => ring.classList.add("down"));
   addEventListener("pointerup", () => ring.classList.remove("down"));
   document.addEventListener("mouseout", e => { if (!e.relatedTarget) ring.classList.remove("on"); });
   (function loop(){
-    x += (tx - x) * .28; y += (ty - y) * .28;
+    x = tx; y = ty;
     ring.style.transform = `translate3d(${x.toFixed(1)}px,${y.toFixed(1)}px,0)`;
     requestAnimationFrame(loop);
   })();
