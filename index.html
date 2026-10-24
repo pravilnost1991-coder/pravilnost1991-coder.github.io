@@ -772,7 +772,7 @@ const FRIENDS = [
   {id:"kuroneko", label:"kuroneko or gsslg4", href:"https://gsslg4.ulan-u.de/"},
   {id:"baeldorf"},{id:"hiniku", href:"https://hiniku.ulan-u.de/"},{id:"weweko"},{id:"polkopi"},
   {id:"rapirsky"},{id:"8lolxd8"},{id:"fighterjet"},{id:"atevand"},
-  {id:"losos", discord:"lososebych", href:"https://discord.com/channels/@me"},{id:"ghostik"},{id:"ladya"},{id:"kartoshka"}
+  {id:"losos", discord:"lososebych", href:"https://discord.com/users/1084885243338686604"},{id:"ghostik"},{id:"ladya"},{id:"kartoshka"}
 ];
 const EDGES = [
   ["kuroneko","baeldorf"],["baeldorf","hiniku"],["hiniku","weweko"],["weweko","polkopi"],
@@ -1074,11 +1074,6 @@ for (const f of FRIENDS){
   el.addEventListener("click", e => {
     if (e.pointerType && e.pointerType !== "mouse" && current !== f.id){
       e.preventDefault(); current = f.id; trace(f.id); return;
-    }
-    // Discord has no add-by-username link: copy the name, then open Discord's friends page
-    if (f.discord){
-      if (navigator.clipboard) navigator.clipboard.writeText(f.discord).catch(() => {});
-      toast(`${f.discord} copied: paste it in Discord → Add Friend`);
     }
   });
 }
