@@ -1,0 +1,77 @@
+name: discord status
+
+# Polls Lanyard from GitHub's servers (reachable from anywhere) and republishes
+# status.json on the site when the track / mood / status changes.
+on:
+  schedule:
+    - cron: "*/5 * * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  actions: write
+
+concurrency:
+  group: status
+  cancel-in-progress: false
+
+jobs:
+  poll:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    env:
+      GH_TOKEN: ${{ github.token }}
+      REPO: ${{ github.repository }}
+      USER_ID: "1359502537895575683"
+    steps:
+      - name: Poll Lanyard for ~5 minutes
+        run: |
+          set -u
+          git config --global user.name "status-bot"
+          git config --global user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          mkdir st && cd st
+          git init -q
+          git remote add origin "https://x-access-token:${GH_TOKEN}@github.com/${REPO}.git"
+          if git fetch -q --depth 1 origin status 2>/dev/null; then
+            git checkout -q -B status FETCH_HEAD
+          else
+            git checkout -q --orphan status
+          fi
+          [ -f status.json ] || echo '{}' > status.json
+
+          end=$((SECONDS + 285))
+          while [ "$SECONDS" -lt "$end" ]; do
+            if curl -fsS --max-time 10 "https://api.lanyard.rest/v1/users/${USER_ID}" -o raw.json; then
+              jq -c '
+                .data as $d
+                | ([$d.activities[] | select(.type == 2)]) as $music
+                | (($music | map(select((.buttons // []) | any(test("liner"; "i"))))) + $music)[0] as $t
+                | {
+                    ok: (.success == true),
+                    at: (now * 1000 | floor),
+                    status: $d.discord_status,
+                    user: $d.discord_user.username,
+                    mood: ([$d.activities[] | select(.type == 4) | .state] | first),
+                    track: (if $t == null then null else {
+                      title: ($t.details // $t.name),
+                      artist: ($t.state // ""),
+                      start: $t.timestamps.start,
+                      end: $t.timestamps.end
+                    } end)
+                  }' raw.json > new.json || { sleep 20; continue; }
+
+              if ! cmp -s <(jq -cS 'del(.at)' new.json) <(jq -cS 'del(.at)' status.json 2>/dev/null || echo x); then
+                cp new.json status.json
+                git add status.json
+                if git rev-parse -q --verify HEAD >/dev/null; then
+                  git commit -q --amend -m "status"
+                else
+                  git commit -q -m "status"
+                fi
+                git push -q -f origin HEAD:status
+                gh workflow run pages.yml --repo "$REPO" --ref main || true
+                echo "updated: $(jq -c 'del(.at)' status.json)"
+              fi
+            fi
+            sleep 20
+          done

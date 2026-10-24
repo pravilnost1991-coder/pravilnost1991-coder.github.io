@@ -288,7 +288,7 @@ body.locked .lens{opacity:0}
       </article>
       <article class="card glass w-np idle rv tilt" style="--i:4" id="np">
         <canvas class="viz" id="viz" aria-hidden="true"></canvas>
-        <span class="lbl">now playin'...</span>
+        <span class="lbl" id="np-lbl">now playin'...</span>
         <p class="track" id="np-track" aria-live="polite">nothing rn</p>
         <div class="bar"><i id="np-bar"></i></div>
       </article>
@@ -525,7 +525,11 @@ const io = new IntersectionObserver(es => {
 screens.forEach(s => io.observe(s));
 
 /* ================= lanyard: mood + now playing ================= */
-const npCard = $("np"), npTrack = $("np-track"), npBar = $("np-bar"), moodEl = $("mood");
+// live: api.lanyard.rest; fallback: status.json on this same site (filled by a GitHub Action)
+const LANYARD = "https://api.lanyard.rest/v1/users/" + DISCORD_ID;
+const npCard = $("np"), npTrack = $("np-track"), npBar = $("np-bar"), npLbl = $("np-lbl"), moodEl = $("mood");
+const dcSt = $("dc-st"), dcName = $("dc-name");
+const ST_TXT = {online:"online", idle:"idle", dnd:"do not disturb", offline:"offline"};
 let ts = null, playing = false;
 
 function pickTrack(d){
@@ -535,38 +539,74 @@ function pickTrack(d){
   if (d.listening_to_spotify && d.spotify) return {title: d.spotify.song, artist: d.spotify.artist, ts: d.spotify.timestamps};
   return null;
 }
-const dcSt = $("dc-st"), dcName = $("dc-name");
-const ST_TXT = {online:"online", idle:"idle", dnd:"do not disturb", offline:"offline"};
-function render(d){
+function render(d, cached, at){
   const s = d.discord_status || "offline";
   dcSt.dataset.s = s; dcSt.querySelector("b").textContent = ST_TXT[s] || s;
   if (d.discord_user && d.discord_user.username) dcName.textContent = "@" + d.discord_user.username;
   const custom = (d.activities || []).find(a => a.type === 4 && a.state);
   moodEl.textContent = custom ? custom.state : MOOD_FALLBACK;
+
   const t = pickTrack(d);
   if (!t){ setIdle(); return; }
   npTrack.textContent = t.artist ? `${t.artist} - ${t.title}` : t.title;
   ts = t.ts && t.ts.start && t.ts.end ? t.ts : null;
+  // a cached snapshot can be old: only call it "now" if the song should still be playing
+  const over = cached && (ts ? Date.now() > ts.end + 5000 : Date.now() - (at || 0) > 4 * 60000);
+  if (over){ ts = null; playing = false; npLbl.textContent = "last played..."; npCard.classList.add("idle"); return; }
+  npLbl.textContent = "now playin'...";
   playing = true;
   npCard.classList.toggle("idle", !ts);
   tick();
 }
 function setIdle(){
   playing = false; ts = null;
+  npLbl.textContent = "now playin'...";
   npTrack.textContent = "nothing rn";
   npCard.classList.add("idle");
+}
+function unavailable(){
+  playing = false; ts = null;
+  npLbl.textContent = "now playin'...";
+  npTrack.textContent = "music status unavailable";
+  npCard.classList.add("idle");
+  moodEl.textContent = MOOD_FALLBACK;
+  dcSt.dataset.s = "offline"; dcSt.querySelector("b").textContent = "status unavailable";
 }
 function tick(){
   if (!ts) return;
   const p = (Date.now() - ts.start) / (ts.end - ts.start);
+  if (p > 1.02){ poll(); }
   npBar.style.width = Math.max(0, Math.min(1, p)) * 100 + "%";
 }
+async function getJSON(url, ms){
+  const ac = new AbortController(), timer = setTimeout(() => ac.abort(), ms);
+  try{ const r = await fetch(url, {cache:"no-store", signal:ac.signal}); if (!r.ok) throw new Error(r.status); return await r.json(); }
+  finally{ clearTimeout(timer); }
+}
+let liveDown = false, lastLiveTry = 0, polling = false;
 async function poll(){
+  if (polling) return; polling = true;
   try{
-    const r = await fetch("https://api.lanyard.rest/v1/users/" + DISCORD_ID, {cache:"no-store"});
-    const j = await r.json();
-    j.success ? render(j.data) : setIdle();
-  }catch(e){ setIdle(); }
+    // if Lanyard is blocked for this visitor, retry it only once a minute
+    if (!liveDown || Date.now() - lastLiveTry > 60000){
+      lastLiveTry = Date.now();
+      try{
+        const j = await getJSON(LANYARD, 5000);
+        if (j.success){ liveDown = false; render(j.data, false); return; }
+      }catch(e){ liveDown = true; }
+    }
+    try{
+      const c = await getJSON("status.json?t=" + Date.now(), 6000);
+      if (c && c.ok && c.status){
+        const acts = [];
+        if (c.mood) acts.push({type:4, state:c.mood});
+        if (c.track) acts.push({type:2, details:c.track.title, state:c.track.artist, timestamps:{start:c.track.start, end:c.track.end}});
+        render({discord_status:c.status, discord_user:{username:c.user}, activities:acts}, true, c.at);
+        return;
+      }
+    }catch(e){}
+    unavailable();
+  } finally { polling = false; }
 }
 poll(); setInterval(poll, POLL_MS); setInterval(tick, 1000);
 
