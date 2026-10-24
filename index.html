@@ -349,7 +349,7 @@ body.locked .ring{opacity:0}
     <div class="widgets">
       <article class="card glass w-mood rv tilt" style="--i:3">
         <h3>mood</h3>
-        <p id="mood">a little tired, irritated</p>
+        <p id="mood">lowkey tired, kinda pressed</p>
       </article>
       <article class="card glass w-np idle rv tilt" style="--i:4" id="np">
         <canvas class="viz" id="viz" aria-hidden="true"></canvas>
@@ -425,7 +425,7 @@ body.locked .ring{opacity:0}
     <p class="q rv" style="--i:0">
       <button class="opt glass light good" id="go-good">бурмалда</button><span>или</span><button class="opt glass light bad" id="go-bad">говнолда?</button>
     </p>
-    <p class="sub glass light rv" style="--i:1">choose wisely</p>
+    <p class="sub glass light rv" style="--i:1">choose wisely, no cap</p>
   </section>
   <footer class="foot">
     <p class="glass light">made with love and claude. thanks to <a href="https://gsslg4.ulan-u.de/" target="_blank" rel="noopener">kuroneko</a> for the inspiration!</p>
@@ -463,31 +463,31 @@ body.locked .ring{opacity:0}
 /* ================= settings ================= */
 const DISCORD_ID = "1359502537895575683";
 const POLL_MS = 5000;
-const MOOD_FALLBACK = "a little tired, irritated";   // when nothing is playing
+const MOOD_FALLBACK = "lowkey tired, kinda pressed";   // when nothing is playing
 // mood per track (by title). Discord custom status still wins over this.
 const TRACK_MOODS = {
-  "i won't wake up":      "sleep mode on, don't wake me",
-  "pretend no one died":  "acting normal, ask me later",
-  "er404":                "error 404: mood not found",
-  "nothing":              "feeling nothing in particular",
-  "fuckman":              "irritated, don't test me",
-  "незнакомое место":     "lost somewhere unfamiliar",
-  "opioid":               "numb, running on autopilot",
-  "end":                  "running on fumes, close to the end",
-  "где-то":               "somewhere else in my head",
-  "busy w / yuke":        "busy, text me later",
-  "sil2nt hill":          "foggy and quiet",
-  "her":                  "thinking about someone",
-  "flashback":            "stuck in a flashback",
-  "every time":           "same thing every time",
-  "chance":               "waiting for my chance",
-  "tagilla":              "hunting in labs, stay out of my way",
-  "summer 15/16":         "missing old summers",
-  "сепия сетчатки":       "everything looks sepia",
-  "danceside":            "too wired to sit still",
-  "заглуши свою голову":  "не слушай меня"
+  "i won't wake up":      "sleep mode on, do not disturb fr",
+  "pretend no one died":  "acting normal, ask me later ngl",
+  "er404":                "error 404: vibe not found",
+  "nothing":              "feeling nothing tbh",
+  "fuckman":              "pressed rn, don't test me",
+  "незнакомое место":     "lowkey lost rn",
+  "opioid":               "numb, on autopilot fr",
+  "end":                  "running on fumes, it's so over",
+  "где-то":               "mentally somewhere else, brb",
+  "busy w / yuke":        "busy af, hmu later",
+  "sil2nt hill":          "foggy n quiet, no thoughts",
+  "her":                  "thinking bout someone ngl",
+  "flashback":            "stuck in a flashback, real",
+  "every time":           "same thing every time smh",
+  "chance":               "locked in, waiting for my chance",
+  "tagilla":              "hunting in labs, don't get clapped",
+  "summer 15/16":         "nostalgic af for old summers",
+  "сепия сетчатки":       "everything's sepia idk",
+  "danceside":            "too wired to sit still ong",
+  "заглуши свою голову":  "don't listen to me fr"
 };
-const UNKNOWN_TRACK_MOOD = artist => artist ? `vibing to ${artist.toLowerCase()}` : "just vibing";
+const UNKNOWN_TRACK_MOOD = artist => artist ? `vibing to ${artist.toLowerCase()} rn` : "just vibing rn";
 const STEAM_URL = "https://steamcommunity.com/profiles/76561198779465136/";
 
 const $ = id => document.getElementById(id);
@@ -670,7 +670,7 @@ function setIdle(){
 function unavailable(){
   playing = false; ts = null;
   npLbl.textContent = "now playin'...";
-  npTrack.textContent = "music status unavailable";
+  npTrack.textContent = "music status unavailable rn";
   npCard.classList.add("idle");
   setMood(MOOD_FALLBACK);
   dcSt.dataset.s = "offline"; dcSt.querySelector("b").textContent = "status unavailable";
