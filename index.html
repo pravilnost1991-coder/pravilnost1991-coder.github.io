@@ -133,12 +133,14 @@ ul{padding:0;list-style:none}
   transition:transform .35s cubic-bezier(.2,.9,.25,1.4)}
 .ava:hover img{transform:rotate(-7deg) scale(1.05)}
 /* glock hanging on the period of the name */
-.peg-ch{position:relative;z-index:5}
+.peg-ch{position:relative;z-index:5;color:transparent;margin-left:.17em}
+/* our own smaller period that the glock hangs on */
+.peg-ch::before{content:"";position:absolute;left:50%;top:.65em;width:.14em;height:.14em;margin:-.07em 0 0 -.07em;border-radius:50%;background:#000}
 .screen.settled .split .ch.peg-ch:hover{transform:none}
-.gun{position:absolute;left:48%;top:.6em;width:1.55em;margin:0;padding:0;border:0;background:none;cursor:pointer;
-  transform:translate(-42.7%,-40.7%);font-size:1em;line-height:0;-webkit-tap-highlight-color:transparent}
+.gun{position:absolute;left:50%;top:.65em;width:1.55em;margin:0;padding:0;border:0;background:none;cursor:pointer;
+  transform:translate(-41.35%,-38.08%);font-size:1em;line-height:0;-webkit-tap-highlight-color:transparent}
 .gun:focus-visible{outline:3px solid #000;outline-offset:6px;border-radius:12px}
-.gun-body{display:block;position:relative;transform-origin:42.7% 40.7%;transform:rotate(72deg);will-change:transform}
+.gun-body{display:block;position:relative;transform-origin:41.35% 38.08%;transform:rotate(76deg);will-change:transform}
 .gun-body img{display:block;width:100%;height:auto;filter:drop-shadow(0 10px 12px rgba(0,0,0,.28));pointer-events:none}
 .gun .port{position:absolute;left:58%;top:3%;width:1px;height:1px}
 .flash{position:absolute;left:-26%;top:10%;width:32%;aspect-ratio:1;border-radius:50%;pointer-events:none;opacity:0;
@@ -1021,7 +1023,7 @@ addEventListener("resize", () => {
   if (dot && dot.textContent === "."){ dot.classList.add("peg-ch"); dot.appendChild(gun); }
 
   // damped pendulum
-  const REST = 72, K = 24, C = 1.7;
+  const REST = 76, K = 24, C = 1.7;
   let th = reduced ? REST : 104, vel = 0, last = 0, running = false;
   const draw = () => { body.style.transform = `rotate(${th.toFixed(2)}deg)`; };
   function frame(t){
