@@ -873,7 +873,7 @@ const Lyr = (() => {
     const off = el ? el.offsetTop + el.offsetHeight / 2 - wrap.clientHeight / 2 : 0;
     lines.style.transform = `translateY(${-Math.max(0, off)}px)`;
   }
-  function start(){ stop(); lastIdx = -2; update(); timer = setInterval(update, 250); }
+  function start(){ stop(); lastIdx = -2; lines.classList.add("nolerp"); update(); setTimeout(() => lines.classList.remove("nolerp"), 60); timer = setInterval(update, 250); }
   async function show(t, synced){
     const key = n(t.artist) + "::" + n(t.title) + "::" + (synced ? 1 : 0);
     if (key === shownKey && !box.classList.contains("hidden")) return; // same track, keep the running line
@@ -899,8 +899,6 @@ const Lyr = (() => {
       paint(arr, true);
     }
   }
-  window.__lyrDbg = () => cur && cur.synced && ts ? { p:((Date.now()-ts.start)/(ts.end-ts.start)).toFixed(3), songMs:cur.songMs, now:Math.round(((Date.now()-ts.start)/(ts.end-ts.start))*cur.songMs), lines:cur.lrc.length, lrc0t:cur.lrc[0].t, lastIdx, timer:!!timer } : {state:cur, hidden:box.classList.contains("hidden")};
-  window.__lyrTick = () => { update(); return { lastIdx, tf: lines.style.transform }; };
   return { show, clear(){ token++; hide(); } };
 })();
 
