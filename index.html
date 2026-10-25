@@ -37,7 +37,7 @@ body{
 }
 body.locked{overflow:hidden}
 ::selection{background:#000;color:#fff}
-.split,.chips,.fr,.opt,.link,.dots,.hint,.w-np,.w-mood h3,.ava,.sub,.lbl,h2,h3{-webkit-user-select:none;user-select:none}
+.split,.chips,.fr,.opt,.link,.dots,.hint,.rate,.views,.w-np,.w-mood h3,.ava,.sub,.lbl,h2,h3{-webkit-user-select:none;user-select:none}
 img{-webkit-user-drag:none;user-select:none}
 #bg{position:fixed;left:0;top:0;width:100vw;height:100lvh;z-index:0;pointer-events:none;will-change:transform}
 main{position:relative;z-index:1}
@@ -250,13 +250,27 @@ a.link{cursor:pointer}
 a.link:focus-visible{outline:3px solid #000;outline-offset:4px}
 
 /* ---------- toast ---------- */
-.toast{position:fixed;left:50%;bottom:max(24px,env(safe-area-inset-bottom));z-index:950;max-width:calc(100vw - 32px);
+.toast{position:fixed;left:50%;bottom:max(24px,env(safe-area-inset-bottom));z-index:950;width:max-content;max-width:calc(100vw - 32px);
   border-radius:999px;padding:12px 20px 11px;font-weight:500;font-size:16px;text-align:center;
   opacity:0;transform:translate(-50%,16px);transition:opacity .25s,transform .3s cubic-bezier(.2,.8,.2,1);pointer-events:none}
 .toast.on{opacity:1;transform:translate(-50%,0)}
 
 /* ---------- footer ---------- */
-.foot{position:relative;z-index:1;display:flex;justify-content:center;padding:0 var(--gut) max(28px,env(safe-area-inset-bottom))}
+.foot{position:relative;z-index:1;display:flex;flex-direction:column;align-items:center;gap:14px;padding:0 var(--gut) max(28px,env(safe-area-inset-bottom))}
+.foot-row{display:flex;flex-wrap:wrap;justify-content:center;align-items:center;gap:12px}
+.views{border-radius:999px;padding:12px 18px 11px;font-size:15px;font-weight:500;font-variant-numeric:tabular-nums;white-space:nowrap}
+.rate{display:flex;flex-wrap:wrap;align-items:center;justify-content:center;gap:10px 16px;border-radius:28px;padding:14px 20px;max-width:100%}
+.rate-q{font-family:"Geoform","Arial Black",system-ui,sans-serif;font-weight:900;font-size:17px}
+.rate-btns{display:flex;gap:6px;flex-wrap:wrap;justify-content:center}
+.rate-btns button{width:34px;height:34px;border-radius:50%;border:1px solid rgba(0,0,0,.14);background:rgba(255,255,255,.55);
+  font:500 15px/1 "Jost",system-ui,sans-serif;color:#000;cursor:pointer;padding:0;
+  transition:background .18s,color .18s,transform .18s cubic-bezier(.2,.9,.25,1.4)}
+.rate-btns button:hover,.rate-btns button:focus-visible,.rate-btns button.pre{background:#000;color:#fff;transform:translateY(-2px)}
+.rate-btns button:focus-visible{outline:3px solid #000;outline-offset:2px}
+.rate.voted .rate-btns button{cursor:default;transform:none;background:rgba(255,255,255,.35);color:rgba(0,0,0,.45)}
+.rate.voted .rate-btns button.mine{background:#000;color:#fff}
+.rate-avg{font-weight:500;font-size:15px;font-variant-numeric:tabular-nums}
+.rate-avg b{font-family:"Geoform","Arial Black",system-ui,sans-serif;font-weight:900;font-size:19px}
 .foot p{border-radius:999px;padding:12px 22px 11px;font-size:15px;text-align:center}
 .foot a{color:inherit;text-underline-offset:3px}
 
@@ -323,6 +337,9 @@ body.locked .ring{opacity:0}
   .links{gap:14px}
   .link{min-height:140px;padding:20px 22px}
   .foot p{border-radius:22px;font-size:14px}
+  .rate{border-radius:22px;padding:14px 12px}
+  .rate-btns{gap:4px}
+  .rate-btns button{width:28px;height:28px;font-size:13px}
   .card{border-radius:20px}
 }
 </style>
@@ -434,7 +451,15 @@ body.locked .ring{opacity:0}
     <p class="sub glass light rv" style="--i:1">choose wisely, no cap</p>
   </section>
   <footer class="foot">
-    <p class="glass light">made with love and claude. thanks to <a href="https://gsslg4.ulan-u.de/" target="_blank" rel="noopener">kuroneko</a> for the inspiration!</p>
+    <div class="rate glass light" id="rate">
+      <span class="rate-q">rate this site, be honest</span>
+      <div class="rate-btns" id="rate-btns" role="group" aria-label="Rate this site from 1 to 10"><button type="button" data-v="1" aria-label="Rate 1 out of 10">1</button><button type="button" data-v="2" aria-label="Rate 2 out of 10">2</button><button type="button" data-v="3" aria-label="Rate 3 out of 10">3</button><button type="button" data-v="4" aria-label="Rate 4 out of 10">4</button><button type="button" data-v="5" aria-label="Rate 5 out of 10">5</button><button type="button" data-v="6" aria-label="Rate 6 out of 10">6</button><button type="button" data-v="7" aria-label="Rate 7 out of 10">7</button><button type="button" data-v="8" aria-label="Rate 8 out of 10">8</button><button type="button" data-v="9" aria-label="Rate 9 out of 10">9</button><button type="button" data-v="10" aria-label="Rate 10 out of 10">10</button></div>
+      <span class="rate-avg" id="rate-avg" aria-live="polite">loading…</span>
+    </div>
+    <div class="foot-row">
+      <p class="glass light">made with love and claude. thanks to <a href="https://gsslg4.ulan-u.de/" target="_blank" rel="noopener">kuroneko</a> for the inspiration!</p>
+      <span class="views glass light" id="views" aria-live="polite">… views</span>
+    </div>
   </footer>
 </main>
 
@@ -1143,6 +1168,65 @@ addEventListener("resize", () => {
       {transform:`translate(${x0 + dx}px,${y0 + fall}px) rotate(820deg)`, opacity:0}
     ], {duration:900, easing:"cubic-bezier(.3,.55,.5,1)"}).onfinish = () => c.remove();
   });
+}
+
+/* ================= ratings 1–10 + view counter (abacus.jasoncameron.dev) ================= */
+{
+  const AB = "https://abacus.jasoncameron.dev", NS = "pravilnost1991-coder.github.io";
+  const rateBox = $("rate"), btns = [...document.querySelectorAll("#rate-btns button")], avgEl = $("rate-avg"), viewsEl = $("views");
+  const store = {
+    get(k, ses){ try{ return (ses ? sessionStorage : localStorage).getItem(k); }catch(e){ return null; } },
+    set(k, v, ses){ try{ (ses ? sessionStorage : localStorage).setItem(k, v); }catch(e){} }
+  };
+  async function ab(op, key){
+    const ac = new AbortController(), timer = setTimeout(() => ac.abort(), 7000);
+    try{
+      const r = await fetch(`${AB}/${op}/${NS}/${key}`, {cache:"no-store", signal:ac.signal});
+      if (r.status === 404) return 0;               // counter not created yet
+      if (!r.ok) throw new Error(r.status);
+      return (await r.json()).value || 0;
+    } finally { clearTimeout(timer); }
+  }
+  const fmt = n => n.toLocaleString("en-US");
+
+  // views: count once per browser session
+  (async () => {
+    try{
+      const first = !store.get("pv-seen", true);
+      const v = await ab(first ? "hit" : "get", "views");
+      if (first) store.set("pv-seen", "1", true);
+      viewsEl.textContent = `${fmt(v)} ${v === 1 ? "view" : "views"}`;
+    }catch(e){ viewsEl.textContent = "views unavailable rn"; }
+  })();
+
+  // ratings: one counter per score, average computed here
+  let mine = +store.get("rate-mine") || 0;
+  function showMine(){
+    rateBox.classList.toggle("voted", !!mine);
+    btns.forEach(b => { b.classList.toggle("mine", +b.dataset.v === mine); b.disabled = !!mine; });
+  }
+  async function refresh(){
+    try{
+      const counts = await Promise.all(btns.map(b => ab("get", "rate-" + b.dataset.v)));
+      const n = counts.reduce((a, c) => a + c, 0), sum = counts.reduce((a, c, i) => a + c * (i + 1), 0);
+      avgEl.innerHTML = n ? `<b>${(sum / n).toFixed(1)}</b> / 10 · ${fmt(n)} ${n === 1 ? "vote" : "votes"}` : "no votes yet, be the first";
+    }catch(e){ avgEl.textContent = "ratings unavailable rn"; }
+  }
+  // hovering a score previews it like stars
+  btns.forEach((b, i) => {
+    b.addEventListener("pointerenter", () => { if (!mine) btns.forEach((x, j) => x.classList.toggle("pre", j <= i)); });
+    b.addEventListener("pointerleave", () => btns.forEach(x => x.classList.remove("pre")));
+    b.addEventListener("click", async () => {
+      if (mine) return;
+      const v = +b.dataset.v;
+      mine = v; store.set("rate-mine", String(v)); showMine();
+      btns.forEach(x => x.classList.remove("pre"));
+      try{ await ab("hit", "rate-" + v); toast(`thanks! you gave it ${v}/10`); }
+      catch(e){ mine = 0; store.set("rate-mine", ""); showMine(); toast("couldn't save your vote, try again later"); return; }
+      refresh();
+    });
+  });
+  showMine(); refresh();
 }
 
 /* ================= steam link (when you have it) ================= */
