@@ -171,7 +171,7 @@ ul{padding:0;list-style:none}
 /* ---------- synced lyrics panel ---------- */
 .hidden{display:none !important}
 .hero.has-lyrics .widgets{margin-top:0}
-.w-lyrics{flex:1 1 auto;min-height:0;margin-top:clamp(20px,3vh,40px);
+.w-lyrics{flex:1 1 auto;min-height:clamp(170px,26vh,360px);margin-top:clamp(20px,3vh,40px);
   display:flex;flex-direction:column;align-items:stretch;text-align:left;
   padding:18px 26px 10px;max-width:min(100%,760px);overflow:hidden;position:relative;
   animation:lyrIn .5s cubic-bezier(.2,.8,.2,1) both}
@@ -179,7 +179,7 @@ ul{padding:0;list-style:none}
 .lyr-tag{align-self:flex-start;font-family:"Geoform","Arial Black",system-ui,sans-serif;font-weight:900;
   font-size:14px;letter-spacing:.14em;text-transform:uppercase;opacity:.5;
   border:1px solid rgba(0,0,0,.14);border-radius:999px;padding:5px 12px 4px;flex:none}
-.lyr-wrap{flex:1 1 auto;min-height:0;position:relative;overflow:hidden;margin-top:12px;
+.lyr-wrap{flex:1 1 auto;min-height:clamp(120px,20vh,300px);position:relative;overflow:hidden;margin-top:12px;
   -webkit-mask-image:linear-gradient(180deg,transparent,#000 16%,#000 84%,transparent);
   mask-image:linear-gradient(180deg,transparent,#000 16%,#000 84%,transparent)}
 .lyr-lines{position:absolute;left:0;right:0;top:0;will-change:transform;
@@ -796,10 +796,10 @@ const Lyr = (() => {
   const box = $("lyr"), tag = $("lyr-tag"), lines = $("lyr-lines");
   const wrap = box.querySelector(".lyr-wrap"), hero = box.closest(".hero");
   const cache = new Map();
-  let token = 0, cur = null, raf = 0, lastIdx = -2;
+  let token = 0, cur = null, raf = 0, lastIdx = -2, shownKey = "";
   const n = s => (s || "").toLowerCase().replace(/[^\p{L}\p{N}]+/gu, " ").trim();
 
-  function hide(){ box.classList.add("hidden"); if (hero) hero.classList.remove("has-lyrics"); lines.innerHTML = ""; cur = null; lastIdx = -2; cancelAnimationFrame(raf); raf = 0; }
+  function hide(){ box.classList.add("hidden"); if (hero) hero.classList.remove("has-lyrics"); lines.innerHTML = ""; cur = null; lastIdx = -2; shownKey = ""; cancelAnimationFrame(raf); raf = 0; }
 
   function parseLRC(txt){
     const out = [];
@@ -868,10 +868,13 @@ const Lyr = (() => {
     raf = requestAnimationFrame(loop);
   }
   async function show(t, synced){
+    const key = n(t.artist) + "::" + n(t.title) + "::" + (synced ? 1 : 0);
+    if (key === shownKey && !box.classList.contains("hidden")) return; // same track, keep the running line
     const my = ++token;
     const dur = ts ? Math.round((ts.end - ts.start) / 1000) : (t.ts && t.ts.start && t.ts.end ? Math.round((t.ts.end - t.ts.start) / 1000) : 0);
     const data = await fetchLyrics(t.artist, t.title, dur);
     if (my !== token) return;
+    shownKey = key;
     cancelAnimationFrame(raf); raf = 0; lastIdx = -2;
     if (!data){ hide(); return; }
     box.classList.remove("hidden");
