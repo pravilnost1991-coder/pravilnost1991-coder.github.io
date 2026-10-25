@@ -836,7 +836,7 @@ const Lyr = (() => {
     let hit = null;
     for (const u of urls){ const j = await getJSONq(u); const b = pickBest(j, dur); if (b){ hit = b; break; } }
     let data = null;
-    if (hit && hit.syncedLyrics){ const lrc = parseLRC(hit.syncedLyrics); if (lrc.length) data = { synced: true, lrc }; }
+    if (hit && hit.syncedLyrics){ const lrc = parseLRC(hit.syncedLyrics); if (lrc.length) data = { synced: true, lrc, dur: hit.duration || 0 }; }
     if (!data && hit && hit.plainLyrics) data = { synced: false, plain: hit.plainLyrics.split("\n").map(s => s.trim()) };
     cache.set(key, data);
     return data;
@@ -850,8 +850,12 @@ const Lyr = (() => {
     lines.style.transform = "translateY(0)";
   }
   function loop(){
-    if (!cur || !cur.synced){ raf = 0; return; }
-    const now = Date.now() - cur.start, lrc = cur.lrc;
+    if (!cur || !cur.synced || !ts){ raf = 0; return; }
+    // position from the live progress fraction (like the bar), not a captured start:
+    // Liner's reported start/end slide forward every poll, so a frozen start desyncs.
+    const span = ts.end - ts.start;
+    const p = span > 0 ? Math.min(1, Math.max(0, (Date.now() - ts.start) / span)) : 0;
+    const now = p * cur.songMs, lrc = cur.lrc;
     let idx = -1;
     for (let i = 0; i < lrc.length; i++){ if (lrc[i].t <= now) idx = i; else break; }
     if (idx !== lastIdx){
@@ -880,7 +884,8 @@ const Lyr = (() => {
     box.classList.remove("hidden");
     if (hero) hero.classList.add("has-lyrics");
     if (data.synced && synced && ts){
-      cur = { synced: true, lrc: data.lrc, start: ts.start };
+      const last = data.lrc[data.lrc.length - 1].t;
+      cur = { synced: true, lrc: data.lrc, songMs: data.dur ? data.dur * 1000 : last + 4000 };
       tag.textContent = "synced";
       paint(data.lrc.map(l => l.txt), false);
       if (reduced) loop(); else raf = requestAnimationFrame(loop);
@@ -891,6 +896,7 @@ const Lyr = (() => {
       paint(arr, true);
     }
   }
+  window.__lyrDbg = () => cur && cur.synced && ts ? { p:((Date.now()-ts.start)/(ts.end-ts.start)).toFixed(3), songMs:cur.songMs, now:Math.round(((Date.now()-ts.start)/(ts.end-ts.start))*cur.songMs), lines:cur.lrc.length, raf:!!raf } : {state:cur, hidden:box.classList.contains("hidden")};
   return { show, clear(){ token++; hide(); } };
 })();
 
