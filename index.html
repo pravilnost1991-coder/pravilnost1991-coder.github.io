@@ -167,6 +167,36 @@ ul{padding:0;list-style:none}
 .w-np .bar{height:4px;border-radius:2px;background:rgba(0,0,0,.22);margin-top:16px;overflow:hidden}
 .w-np .bar i{display:block;height:100%;width:0;background:#000;transition:width 1s linear}
 .w-np.idle .bar{visibility:hidden}
+
+/* ---------- synced lyrics panel ---------- */
+.hidden{display:none !important}
+.hero.has-lyrics .widgets{margin-top:0}
+.w-lyrics{flex:1 1 auto;min-height:0;margin-top:clamp(20px,3vh,40px);
+  display:flex;flex-direction:column;align-items:stretch;text-align:left;
+  padding:18px 26px 10px;max-width:min(100%,760px);overflow:hidden;position:relative;
+  animation:lyrIn .5s cubic-bezier(.2,.8,.2,1) both}
+@keyframes lyrIn{from{opacity:0;transform:translateY(10px);filter:blur(5px)}to{opacity:1;transform:none;filter:none}}
+.lyr-tag{align-self:flex-start;font-family:"Geoform","Arial Black",system-ui,sans-serif;font-weight:900;
+  font-size:14px;letter-spacing:.14em;text-transform:uppercase;opacity:.5;
+  border:1px solid rgba(0,0,0,.14);border-radius:999px;padding:5px 12px 4px;flex:none}
+.lyr-wrap{flex:1 1 auto;min-height:0;position:relative;overflow:hidden;margin-top:12px;
+  -webkit-mask-image:linear-gradient(180deg,transparent,#000 16%,#000 84%,transparent);
+  mask-image:linear-gradient(180deg,transparent,#000 16%,#000 84%,transparent)}
+.lyr-lines{position:absolute;left:0;right:0;top:0;will-change:transform;
+  transition:transform .55s cubic-bezier(.2,.8,.2,1)}
+.lyr-lines.nolerp{transition:none}
+.lyr-lines p{font-size:clamp(20px,2.3vw,30px);line-height:1.25;font-weight:500;
+  margin:2px 0;color:rgba(0,0,0,.26);letter-spacing:-.01em;
+  transition:color .35s ease,opacity .35s ease,transform .35s cubic-bezier(.2,.8,.2,1),filter .35s ease;
+  transform-origin:left center}
+.lyr-lines.plain p{color:rgba(0,0,0,.6)}
+.lyr-lines p.cur{color:#000;font-weight:900;font-family:"Geoform","Arial Black",system-ui,sans-serif;
+  transform:scale(1.06);filter:none}
+.lyr-lines p.near{color:rgba(0,0,0,.5)}
+.w-lyrics.state p{color:rgba(0,0,0,.42);font-size:clamp(18px,2vw,24px)}
+@media (prefers-reduced-motion:reduce){
+  .w-lyrics,.lyr-lines,.lyr-lines p{animation:none !important;transition:none !important}
+}
 .glass > .viz{position:absolute;inset:0;width:100%;height:100%;z-index:0}
 .hint{position:absolute;right:var(--gut);bottom:40px;font-size:15px;border-radius:999px;padding:9px 16px 8px}
 
@@ -325,6 +355,10 @@ body.locked .ring{opacity:0}
   .w-np{padding-top:20px}
   .w-np .lbl{font-size:17px}
   .w-np .track{font-size:19px;margin-top:10px}
+  .w-lyrics{margin-top:18px;padding:14px 18px 6px;max-height:38vh;flex:0 1 auto}
+  .lyr-tag{font-size:12px;padding:4px 10px 3px}
+  .lyr-lines p{font-size:21px;line-height:1.22;margin:1px 0}
+  .lyr-lines p.cur{transform:scale(1.04)}
   .hint{display:none}
   .about .grid{gap:14px}
   .about .me{padding:20px 20px;font-size:24px}
@@ -368,6 +402,11 @@ body.locked .ring{opacity:0}
         <li class="glass">EFT</li><li class="glass">DCS</li><li class="glass">ARMA 3</li><li class="glass">BODYCAM</li><li class="glass">BRICK RIGS</li><li class="glass">GARRY’S MOD</li>
       </ul>
     </div>
+
+    <article class="card glass w-lyrics rv hidden" id="lyr" aria-label="lyrics for the current track">
+      <span class="lyr-tag" id="lyr-tag">lyrics</span>
+      <div class="lyr-wrap"><div class="lyr-lines" id="lyr-lines"></div></div>
+    </article>
 
     <div class="widgets">
       <article class="card glass w-mood rv tilt" style="--i:3">
@@ -693,10 +732,11 @@ function render(d, cached, at){
   ts = t.ts && t.ts.start && t.ts.end ? t.ts : null;
   // a cached snapshot can be old: only call it "now" if the song should still be playing
   const over = cached && (ts ? Date.now() > ts.end + 5000 : Date.now() - (at || 0) > 4 * 60000);
-  if (over){ ts = null; playing = false; npLbl.textContent = "last played..."; npCard.classList.add("idle"); return; }
+  if (over){ ts = null; playing = false; npLbl.textContent = "last played..."; npCard.classList.add("idle"); Lyr.show(t, false); return; }
   npLbl.textContent = "now playin'...";
   playing = true;
   npCard.classList.toggle("idle", !ts);
+  Lyr.show(t, !!ts);
   tick();
 }
 function setIdle(){
@@ -704,6 +744,7 @@ function setIdle(){
   npLbl.textContent = "now playin'...";
   npTrack.textContent = "nothing rn";
   npCard.classList.add("idle");
+  Lyr.clear();
 }
 function unavailable(){
   playing = false; ts = null;
@@ -712,6 +753,7 @@ function unavailable(){
   npCard.classList.add("idle");
   setMood(MOOD_FALLBACK);
   dcSt.dataset.s = "offline"; dcSt.querySelector("b").textContent = "status unavailable";
+  Lyr.clear();
 }
 function tick(){
   if (!ts) return;
@@ -749,6 +791,106 @@ async function poll(){
     unavailable();
   } finally { polling = false; }
 }
+/* ================= synced lyrics (lrclib.net, free, no key) ================= */
+const Lyr = (() => {
+  const box = $("lyr"), tag = $("lyr-tag"), lines = $("lyr-lines");
+  const wrap = box.querySelector(".lyr-wrap"), hero = box.closest(".hero");
+  const cache = new Map();
+  let token = 0, cur = null, raf = 0, lastIdx = -2;
+  const n = s => (s || "").toLowerCase().replace(/[^\p{L}\p{N}]+/gu, " ").trim();
+
+  function hide(){ box.classList.add("hidden"); if (hero) hero.classList.remove("has-lyrics"); lines.innerHTML = ""; cur = null; lastIdx = -2; cancelAnimationFrame(raf); raf = 0; }
+
+  function parseLRC(txt){
+    const out = [];
+    for (const ln of txt.split("\n")){
+      const tags = [...ln.matchAll(/\[(\d{1,2}):(\d{2})(?:[.:](\d{1,3}))?\]/g)];
+      if (!tags.length) continue;
+      const body = ln.replace(/\[[^\]]*\]/g, "").trim();
+      for (const g of tags){
+        const ms = (+g[1]) * 60000 + (+g[2]) * 1000 + (g[3] ? +g[3].padEnd(3, "0") : 0);
+        out.push({ t: ms, txt: body });
+      }
+    }
+    return out.sort((a, b) => a.t - b.t);
+  }
+  function pickBest(list, dur){
+    if (!Array.isArray(list) || !list.length) return null;
+    const sc = list.map(x => ({ x, s: x.syncedLyrics ? 1 : 0, p: x.plainLyrics ? 1 : 0, d: dur ? Math.abs((x.duration || 0) - dur) : 0 }));
+    sc.sort((a, b) => (b.s - a.s) || (a.d - b.d));
+    const best = sc.find(o => o.s) || sc.find(o => o.p);
+    return best ? best.x : null;
+  }
+  async function getJSONq(url){
+    const ac = new AbortController(), timer = setTimeout(() => ac.abort(), 6000);
+    try { const r = await fetch(url, { signal: ac.signal }); return r.ok ? await r.json() : null; }
+    catch (e) { return null; } finally { clearTimeout(timer); }
+  }
+  async function fetchLyrics(artist, title, dur){
+    const key = n(artist) + "::" + n(title);
+    if (cache.has(key)) return cache.get(key);
+    const urls = [];
+    if (artist) urls.push(`https://lrclib.net/api/search?artist_name=${encodeURIComponent(artist)}&track_name=${encodeURIComponent(title)}`);
+    urls.push(`https://lrclib.net/api/search?track_name=${encodeURIComponent(title)}`);
+    urls.push(`https://lrclib.net/api/search?q=${encodeURIComponent((artist ? artist + " " : "") + title)}`);
+    let hit = null;
+    for (const u of urls){ const j = await getJSONq(u); const b = pickBest(j, dur); if (b){ hit = b; break; } }
+    let data = null;
+    if (hit && hit.syncedLyrics){ const lrc = parseLRC(hit.syncedLyrics); if (lrc.length) data = { synced: true, lrc }; }
+    if (!data && hit && hit.plainLyrics) data = { synced: false, plain: hit.plainLyrics.split("\n").map(s => s.trim()) };
+    cache.set(key, data);
+    return data;
+  }
+  function paint(arr, plain){
+    lines.classList.toggle("plain", plain);
+    lines.innerHTML = "";
+    const frag = document.createDocumentFragment();
+    for (const s of arr){ const p = document.createElement("p"); p.textContent = s || " "; frag.appendChild(p); }
+    lines.appendChild(frag);
+    lines.style.transform = "translateY(0)";
+  }
+  function loop(){
+    if (!cur || !cur.synced){ raf = 0; return; }
+    const now = Date.now() - cur.start, lrc = cur.lrc;
+    let idx = -1;
+    for (let i = 0; i < lrc.length; i++){ if (lrc[i].t <= now) idx = i; else break; }
+    if (idx !== lastIdx){
+      lastIdx = idx;
+      const ps = lines.children;
+      for (let i = 0; i < ps.length; i++){
+        ps[i].classList.toggle("cur", i === idx);
+        ps[i].classList.toggle("near", i === idx - 1 || i === idx + 1);
+      }
+      const el = idx >= 0 ? ps[idx] : null;
+      const off = el ? el.offsetTop + el.offsetHeight / 2 - wrap.clientHeight / 2 : 0;
+      lines.style.transform = `translateY(${-Math.max(0, off)}px)`;
+    }
+    raf = requestAnimationFrame(loop);
+  }
+  async function show(t, synced){
+    const my = ++token;
+    const dur = ts ? Math.round((ts.end - ts.start) / 1000) : (t.ts && t.ts.start && t.ts.end ? Math.round((t.ts.end - t.ts.start) / 1000) : 0);
+    const data = await fetchLyrics(t.artist, t.title, dur);
+    if (my !== token) return;
+    cancelAnimationFrame(raf); raf = 0; lastIdx = -2;
+    if (!data){ hide(); return; }
+    box.classList.remove("hidden");
+    if (hero) hero.classList.add("has-lyrics");
+    if (data.synced && synced && ts){
+      cur = { synced: true, lrc: data.lrc, start: ts.start };
+      tag.textContent = "synced";
+      paint(data.lrc.map(l => l.txt), false);
+      if (reduced) loop(); else raf = requestAnimationFrame(loop);
+    } else {
+      cur = { synced: false };
+      tag.textContent = "lyrics";
+      const arr = (data.synced ? data.lrc.map(l => l.txt) : data.plain).filter((s, i, a) => !(s === "" && a[i - 1] === ""));
+      paint(arr, true);
+    }
+  }
+  return { show, clear(){ token++; hide(); } };
+})();
+
 poll(); setInterval(poll, POLL_MS); setInterval(tick, 1000);
 
 /* ================= visualizer (white waves) ================= */
