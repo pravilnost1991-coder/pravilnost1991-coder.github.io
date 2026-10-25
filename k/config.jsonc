@@ -20,7 +20,7 @@
     "packages",
     "shell",
     "cpu",
-    "gpu",
+    { "type": "gpu", "format": "Intel HD Graphics (Bay Trail)" },
     "memory",
     "swap",
     "disk",
