@@ -796,10 +796,11 @@ const Lyr = (() => {
   const box = $("lyr"), tag = $("lyr-tag"), lines = $("lyr-lines");
   const wrap = box.querySelector(".lyr-wrap"), hero = box.closest(".hero");
   const cache = new Map();
-  let token = 0, cur = null, raf = 0, lastIdx = -2, shownKey = "";
+  let token = 0, cur = null, timer = 0, lastIdx = -2, shownKey = "";
   const n = s => (s || "").toLowerCase().replace(/[^\p{L}\p{N}]+/gu, " ").trim();
 
-  function hide(){ box.classList.add("hidden"); if (hero) hero.classList.remove("has-lyrics"); lines.innerHTML = ""; cur = null; lastIdx = -2; shownKey = ""; cancelAnimationFrame(raf); raf = 0; }
+  function stop(){ if (timer) clearInterval(timer); timer = 0; }
+  function hide(){ box.classList.add("hidden"); if (hero) hero.classList.remove("has-lyrics"); lines.innerHTML = ""; cur = null; lastIdx = -2; shownKey = ""; stop(); }
 
   function parseLRC(txt){
     const out = [];
@@ -849,8 +850,11 @@ const Lyr = (() => {
     lines.appendChild(frag);
     lines.style.transform = "translateY(0)";
   }
-  function loop(){
-    if (!cur || !cur.synced || !ts){ raf = 0; return; }
+  // setInterval, not requestAnimationFrame: rAF is frozen in background/occluded tabs,
+  // which would stall the karaoke. Line-level highlight at 250ms is plenty smooth,
+  // and the CSS transition glides the scroll between ticks.
+  function update(){
+    if (!cur || !cur.synced || !ts){ return; }
     // position from the live progress fraction (like the bar), not a captured start:
     // Liner's reported start/end slide forward every poll, so a frozen start desyncs.
     const span = ts.end - ts.start;
@@ -858,19 +862,18 @@ const Lyr = (() => {
     const now = p * cur.songMs, lrc = cur.lrc;
     let idx = -1;
     for (let i = 0; i < lrc.length; i++){ if (lrc[i].t <= now) idx = i; else break; }
-    if (idx !== lastIdx){
-      lastIdx = idx;
-      const ps = lines.children;
-      for (let i = 0; i < ps.length; i++){
-        ps[i].classList.toggle("cur", i === idx);
-        ps[i].classList.toggle("near", i === idx - 1 || i === idx + 1);
-      }
-      const el = idx >= 0 ? ps[idx] : null;
-      const off = el ? el.offsetTop + el.offsetHeight / 2 - wrap.clientHeight / 2 : 0;
-      lines.style.transform = `translateY(${-Math.max(0, off)}px)`;
+    if (idx === lastIdx) return;
+    lastIdx = idx;
+    const ps = lines.children;
+    for (let i = 0; i < ps.length; i++){
+      ps[i].classList.toggle("cur", i === idx);
+      ps[i].classList.toggle("near", i === idx - 1 || i === idx + 1);
     }
-    raf = requestAnimationFrame(loop);
+    const el = idx >= 0 ? ps[idx] : null;
+    const off = el ? el.offsetTop + el.offsetHeight / 2 - wrap.clientHeight / 2 : 0;
+    lines.style.transform = `translateY(${-Math.max(0, off)}px)`;
   }
+  function start(){ stop(); lastIdx = -2; update(); timer = setInterval(update, 250); }
   async function show(t, synced){
     const key = n(t.artist) + "::" + n(t.title) + "::" + (synced ? 1 : 0);
     if (key === shownKey && !box.classList.contains("hidden")) return; // same track, keep the running line
@@ -879,7 +882,7 @@ const Lyr = (() => {
     const data = await fetchLyrics(t.artist, t.title, dur);
     if (my !== token) return;
     shownKey = key;
-    cancelAnimationFrame(raf); raf = 0; lastIdx = -2;
+    stop(); lastIdx = -2;
     if (!data){ hide(); return; }
     box.classList.remove("hidden");
     if (hero) hero.classList.add("has-lyrics");
@@ -888,7 +891,7 @@ const Lyr = (() => {
       cur = { synced: true, lrc: data.lrc, songMs: data.dur ? data.dur * 1000 : last + 4000 };
       tag.textContent = "synced";
       paint(data.lrc.map(l => l.txt), false);
-      if (reduced) loop(); else raf = requestAnimationFrame(loop);
+      start();
     } else {
       cur = { synced: false };
       tag.textContent = "lyrics";
@@ -896,7 +899,8 @@ const Lyr = (() => {
       paint(arr, true);
     }
   }
-  window.__lyrDbg = () => cur && cur.synced && ts ? { p:((Date.now()-ts.start)/(ts.end-ts.start)).toFixed(3), songMs:cur.songMs, now:Math.round(((Date.now()-ts.start)/(ts.end-ts.start))*cur.songMs), lines:cur.lrc.length, lrc0t:cur.lrc[0].t, lrcLastT:cur.lrc[cur.lrc.length-1].t, lastIdx, raf:!!raf } : {state:cur, hidden:box.classList.contains("hidden")};
+  window.__lyrDbg = () => cur && cur.synced && ts ? { p:((Date.now()-ts.start)/(ts.end-ts.start)).toFixed(3), songMs:cur.songMs, now:Math.round(((Date.now()-ts.start)/(ts.end-ts.start))*cur.songMs), lines:cur.lrc.length, lrc0t:cur.lrc[0].t, lastIdx, timer:!!timer } : {state:cur, hidden:box.classList.contains("hidden")};
+  window.__lyrTick = () => { update(); return { lastIdx, tf: lines.style.transform }; };
   return { show, clear(){ token++; hide(); } };
 })();
 
